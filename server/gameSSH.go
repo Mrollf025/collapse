@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/Mrollf025/collapse/ui"
-	tea "github.com/charmbracelet/bubbletea"
+	tea "github.com/charmbracelet/bubbletea" // tea.Model, tea.ProgramOption
 	"github.com/charmbracelet/log"
 	"github.com/charmbracelet/ssh"
 	"github.com/charmbracelet/wish"
@@ -37,10 +37,13 @@ func Start() {
 
 	if err != nil {
 		log.Error("Could not start server", "error", err)
+		return
 	}
+
 	done := make(chan os.Signal, 1)
 	signal.Notify(done, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	log.Info("Starting SSH server", "host", host, "port", port)
+
 	go func() {
 		if err = server.ListenAndServe(); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
 			log.Error("Could not start server", "error", err)
@@ -51,7 +54,7 @@ func Start() {
 	<-done
 	log.Info("Stopping SSH server")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer func() { cancel() }()
+	defer cancel()
 	if err := server.Shutdown(ctx); err != nil && !errors.Is(err, ssh.ErrServerClosed) {
 		log.Error("Could not stop server", "error", err)
 	}
@@ -59,9 +62,6 @@ func Start() {
 
 func teaHandler(s ssh.Session) (tea.Model, []tea.ProgramOption) {
 	pty, _, _ := s.Pty()
-	m := ui.Model{
-		WindowWidth:  pty.Window.Width,
-		WindowHeight: pty.Window.Height,
-	}
-	return m, []tea.ProgramOption{}
+	m := ui.InitialModel(pty.Window.Width, pty.Window.Height)
+	return m, nil
 }
